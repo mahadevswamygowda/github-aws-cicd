@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: AWS template to check CICD pipeline
+Description: AWS template to check CICD
 Parameters:
   GitHubOwner:
     Type: String
