@@ -166,6 +166,59 @@ Resources:
       TargetPipelineVersion: !GetAtt codepipeline.Version
       RegisterWithThirdParty: 'true'
 
+  Codebuildprojectdeploydev:
+    Type: 'AWS::CodeBuild::Project'
+    Properties:
+      Name: !Sub '${AWS::StackName}-deploy-dev'
+      ServiceRole: !Ref codebuildservicerole
+      Source:
+        Type: CODEPIPELINE
+        BuildSpec: deployspec.yaml
+      Artifacts:
+        Type: CODEPIPELINE
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/standard:4.0
+        EnvironmentVariables: 
+          - Name: ENV_NAME
+            Value: dev
+
+  Codebuildprojectdeployqa:
+    Type: 'AWS::CodeBuild::Project'
+    Properties:
+      Name: !Sub '${AWS::StackName}-deploy-qa'
+      ServiceRole: !Ref codebuildservicerole
+      Source:
+        Type: CODEPIPELINE
+        BuildSpec: deployspec.yaml
+      Artifacts:
+        Type: CODEPIPELINE
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/standard:4.0
+        EnvironmentVariables: 
+          - Name: ENV_NAME
+            Value: qa
+
+  Codebuildprojectdeployprod:
+    Type: 'AWS::CodeBuild::Project'
+    Properties:
+      Name: !Sub '${AWS::StackName}-deploy-prod'
+      ServiceRole: !Ref codebuildservicerole
+      Source:
+        Type: CODEPIPELINE
+        BuildSpec: deployspec.yaml
+      Artifacts:
+        Type: CODEPIPELINE
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/standard:4.0
+        EnvironmentVariables: 
+          - Name: ENV_NAME
+            Value: prod
 
   codepipeline:
     Type: AWS::CodePipeline::Pipeline
@@ -195,15 +248,65 @@ Resources:
 
           - Name: Build
             Actions: 
-            - Name: Build
-              ActionTypeId:
-                Category: Build
-                Owner: AWS
-                Provider: CodeBuild
-                Version: 1
-              Configuration:
-                ProjectName: !Ref Codebuildproject
-              OutputArtifacts:
-                - Name: BuildOutput
-              InputArtifacts:
-                - Name: SourceCode 
+              - Name: Build
+                ActionTypeId:
+                  Category: Build
+                  Owner: AWS
+                  Provider: CodeBuild
+                  Version: 1
+                Configuration:
+                  ProjectName: !Ref Codebuildproject
+                OutputArtifacts:
+                  - Name: BuildOutput
+                InputArtifacts:
+                  - Name: SourceCode 
+
+          - Name: Dev
+            Actions: 
+              - Name: Deploy
+                ActionTypeId:
+                  Category: Build
+                  Owner: AWS
+                  Provider: CodeBuild
+                  Version: 1
+                Configuration:
+                  ProjectName: !Ref Codebuildprojectdeploydev
+                InputArtifacts:
+                  - Name: BuildOutput 
+
+          - Name: QA
+            Actions: 
+              - Name: Deploy
+                RunOrder: 1
+                ActionTypeId:
+                  Category: Build
+                  Owner: AWS
+                  Provider: CodeBuild
+                  Version: 1
+                Configuration:
+                  ProjectName: !Ref Codebuildprojectdeployqa
+                InputArtifacts:
+                  - Name: BuildOutput
+
+              - Name: Approval
+                RunOrder: 1
+                ActionTypeId:
+                  Category: Approval
+                  Owner: AWS
+                  Provider: Manual
+                  Version: 1
+                Configuration:
+                  CustomData: Approve or reject this change after running tests
+
+          - Name: PROD
+            Actions: 
+              - Name: Deploy
+                ActionTypeId:
+                  Category: Build
+                  Owner: AWS
+                  Provider: CodeBuild
+                  Version: 1
+                Configuration:
+                  ProjectName: !Ref Codebuildprojectdeployprod
+                InputArtifacts:
+                  - Name: BuildOutput 
